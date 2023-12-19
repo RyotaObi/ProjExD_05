@@ -36,6 +36,24 @@ def calc_orientation(org: pg.Rect, dst: pg.Rect) -> tuple[float, float]:
     x_diff, y_diff = dst.centerx-org.centerx, dst.centery-org.centery
     norm = math.sqrt(x_diff**2+y_diff**2)
     return x_diff/norm, y_diff/norm
+def sound():
+        pg.mixer.init()    # 初期設定
+         
+        pg.mixer.music.load("ex05/encount.mp3")     # 音楽ファイルの読み込み
+        
+        pg.mixer.music.play(-1)#無限再生
+         
+        #time.sleep(100)
+        #pg.mixer.music.stop()               # 再生の終了
+def sound2():
+    pg.mixer.init()    # 初期設定
+         
+    pg.mixer.music.load("ex05/boudou.mp3")     # 音楽ファイルの読み込み
+        
+    pg.mixer.music.play(-1)#無限再生
+
+
+
 
 
 class Bird(pg.sprite.Sprite):
@@ -270,7 +288,6 @@ class Enemy(pg.sprite.Sprite):
             self.state = "stop"
         self.rect.centery += self.vy
 
-
 class Score:
     """
     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
@@ -291,16 +308,18 @@ class Score:
 
 
 def main():
+    
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
     score = Score()
-    
+    sound()
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    
 
     tmr = 0
     clock = pg.time.Clock()
@@ -323,8 +342,9 @@ def main():
                 bird.speed = 20
             if event.type == pg.KEYDOWN and event.key != pg.K_LSHIFT:
                 bird.speed = 10
-
+        
         screen.blit(bg_img, [0, 0])
+        
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
@@ -335,6 +355,7 @@ def main():
                 bombs.add(Bomb(emy, bird))
 
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
+            # pg.mixer.music.stop()
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 100  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
@@ -342,6 +363,8 @@ def main():
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
+            
+           
 
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):
@@ -375,3 +398,4 @@ if __name__ == "__main__":
     main()
     pg.quit()
     sys.exit()
+   
