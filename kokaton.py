@@ -119,6 +119,88 @@ class Bird(pg.sprite.Sprite):
             self.change_state("nomal", -1)
         screen.blit(self.image, self.rect)
 
+class Bird2(pg.sprite.Sprite):
+    """
+    もう一体のこうかとんに関するクラス
+    """
+    delta = {   # wasdの辞書
+        pg.K_w: (0, -1),
+        pg.K_s: (0, +1),
+        pg.K_a: (-1, 0),
+        pg.K_d: (+1, 0),
+    }
+
+    def __init__(self, num: int, xy: tuple[int, int]):
+        """
+        もう一体のこうかとん画像Surfaceを生成する
+        引数1 num：こうかとん画像ファイル名の番号
+        引数2 xy：こうかとん画像の位置座標タプル
+        """
+        super().__init__()
+        img0 = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/{num}.png"), 0, 2.0)
+        img = pg.transform.flip(img0, True, False)
+        self.imgs = {
+            (+1, 0): img,
+            (+1, -1): pg.transform.rotozoom(img, 45, 1.0),
+            (0, -1): pg.transform.rotozoom(img, 90, 1.0),
+            (-1, -1): pg.transform.rotozoom(img0, -45, 1.0),
+            (-1, 0): img0,
+            (-1, +1): pg.transform.rotozoom(img0, 45, 1.0),
+            (0, +1): pg.transform.rotozoom(img, -90, 1.0),
+            (+1, +1): pg.transform.rotozoom(img, -45, 1.0),
+        }
+        self.dire = (+1, 0)
+        self.image = self.imgs[self.dire]
+        self.rect = self.image.get_rect()
+        self.rect.center = xy
+        self.speed = 10
+        self.state = "nomal"
+        self.hyper_life = -1
+
+    def change_img(self, num: int, screen: pg.Surface):
+        """
+        もう一体のこうかとん画像を切り替え，画面に転送する
+        引数1 num：こうかとん画像ファイル名の番号
+        引数2 screen：画面Surface
+        """
+        self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/{num}.png"), 0, 2.0)
+        screen.blit(self.image, self.rect)
+
+    def change_state(self, state: str, hyper_life: int):
+        """
+        引数1 state:こうかとんの状態
+        引数2 hyper_life:こうかとんのハイパー状態
+        """
+        self.state = state
+        self.hyper_life = hyper_life
+
+    def update(self, key_lst: list[bool], screen: pg.Surface):
+        """
+        押下キーに応じてもう一体のこうかとんを移動させる
+        引数1 key_lst：押下キーの真理値リスト
+        引数2 screen：画面Surface
+        """
+        sum_mv = [0, 0]
+        for k, mv in __class__.delta.items():
+            if key_lst[k]:
+                self.rect.move_ip(+self.speed*mv[0], +self.speed*mv[1])
+                sum_mv[0] += mv[0]
+                sum_mv[1] += mv[1]
+        if check_bound(self.rect) != (True, True):
+            for k, mv in __class__.delta.items():
+                if key_lst[k]:
+                    self.rect.move_ip(-self.speed*mv[0], -self.speed*mv[1])
+        if not (sum_mv[0] == 0 and sum_mv[1] == 0):
+            self.dire = tuple(sum_mv)
+            self.image = self.imgs[self.dire]
+        if self.state == "hyper":
+            self.image = pg.transform.laplacian(self.image)
+            self.hyper_life -= 1
+        if self.hyper_life < 0:
+            self.change_state("nomal", -1)
+        screen.blit(self.image, self.rect)
+
+
 
 class Bomb(pg.sprite.Sprite):
     """
@@ -159,7 +241,7 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird, angle: int = 0):
+    def __init__(self, bird: Bird,angle: int = 0):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
@@ -206,14 +288,37 @@ class NeoBeam():
         for angle in angles:
             beams.append(Beam(self.bird, angle))
         return beams
+    
+class Beam2(pg.sprite.Sprite):
+    """
+    ビームに関するクラス
+    """
+    def __init__(self, bird2: Bird2, angle: int = 0):
+        """
+        ビーム画像Surfaceを生成する
+        引数 bird：ビームを放つこうかとん2
+        """
+        super().__init__()
+        self.vx, self.vy = bird2.dire
+        rotated_image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/beam.png"), angle, 2.0)
+        self.image = pg.transform.flip(rotated_image, False, True)
+        angle = math.degrees(math.atan2(-self.vy, self.vx)) + angle
+        self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/beam.png"), angle, 2.0)
+        self.vx = math.cos(math.radians(angle))
+        self.vy = -math.sin(math.radians(angle))
+        self.rect = self.image.get_rect()
+        self.rect.centery = bird2.rect.centery+bird2.rect.height*self.vy
+        self.rect.centerx = bird2.rect.centerx+bird2.rect.width*self.vx
+        self.speed = 10
 
-    # def update(self):
-    #     """
-    #     ビームを速度ベクトルself.vx, self.vyに基づき移動させる
-    #     引数 screen：画面Surface
-    #     """
-    #     for beam in self.beams:
-    #         beam.update()
+    def update(self):
+        """
+        ビームを速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -297,8 +402,10 @@ def main():
     score = Score()
     
     bird = Bird(3, (900, 400))
+    bird2 = Bird2(3, (700, 400))  # もう一体のこうかとんを生成
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
+    beams2 = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
 
@@ -314,6 +421,14 @@ def main():
                     beams.add(NeoBeam(bird, num=5).gen_beams())   # 5本のビームを生成
                 else:
                     beams.add(Beam(bird))
+                beams2.add(Beam2(bird2))
+                    
+
+        # for event in pg.event.get():
+        #     if event.type == pg.QUIT:
+        #         return 0
+        #     if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+        #         beams2.add(Beam2(bird2))
 
             if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
                 if score.value >= 100:
@@ -339,7 +454,16 @@ def main():
             score.value += 100  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
 
+        for emy in pg.sprite.groupcollide(emys, beams2, True, True).keys():
+            exps.add(Explosion(emy, 100))  # 爆発エフェクト
+            score.value += 100  # 10点アップ
+            bird2.change_img(6, screen)  # こうかとん喜びエフェクト
+
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
+            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+            score.value += 1  # 1点アップ
+
+        for bomb in pg.sprite.groupcollide(bombs, beams2, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
@@ -356,8 +480,11 @@ def main():
                 return
 
         bird.update(key_lst, screen)
+        bird2.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
+        beams2.update()
+        beams2.draw(screen)
         emys.update()
         emys.draw(screen)
         bombs.update()
@@ -368,8 +495,7 @@ def main():
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
-
+        
 if __name__ == "__main__":
     pg.init()
     main()
