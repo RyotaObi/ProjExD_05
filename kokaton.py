@@ -290,6 +290,31 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class Boss(pg.sprite.Sprite):
+    """
+    ボスに関するクラス
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/boss.png"), 0, 0.2)
+        self.rect = self.image.get_rect()
+        self.rect.center = random.randint(0, WIDTH), 0
+        self.vy = +6
+        self.bound = random.randint(230, HEIGHT/2) # 停止位置
+        self.state = "down" # 降下状態or停止状態
+        self.interval = random.randint(50, 300) # 爆弾投下インターバル
+
+    def update(self):
+        """
+        敵機を速度ベクトルself.vx、self.vyに基づき移動させる
+        """
+        if self.rect.centery > self.bound:
+            self.vy = 0
+            self.state = "stop"
+        self.rect.centery += self.vy
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -301,6 +326,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    bosss = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -324,20 +350,33 @@ def main():
             if event.type == pg.KEYDOWN and event.key != pg.K_LSHIFT:
                 bird.speed = 10
 
+            
+
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
+            bosss.add(Boss())
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
 
+        for boss in bosss:
+            if boss.state == "stop" and tmr%boss.interval == 0:
+                # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
+                bombs.add(Bomb(boss, bird))
+
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 100  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
+
+        for bo in pg.sprite.groupcollide(bosss, beams, screen, True):
+            exps.add(Explosion(boss, 100)) # 爆発エフェクト
+            score.value += 500 # 500点アップ
+            bird.change_img(9, screen) # こうかとん喜びエフェクト
 
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
@@ -354,6 +393,7 @@ def main():
                 pg.display.update()
                 time.sleep(2)
                 return
+            
 
         bird.update(key_lst, screen)
         beams.update()
@@ -364,6 +404,8 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        bosss.update()
+        bosss.draw(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1
