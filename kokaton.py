@@ -140,7 +140,7 @@ class Bomb(pg.sprite.Sprite):
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
         # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
-        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)  
+        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height/2
         self.speed = 6
@@ -153,7 +153,35 @@ class Bomb(pg.sprite.Sprite):
         self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
-            
+
+
+class Fire(pg.sprite.Sprite):
+    """
+    火に関するクラス
+    """
+
+    def __init__(self, emy: "Enemy", bird: Bird):
+        """
+        火画像Surfaceを生成する
+        """
+        super().__init__()
+        self.image = pg.image.load(f"{MAIN_DIR}/fig/pngtree-orange-red-flame-flame-clipart-png-image_2388399.jpg")
+        self.rect = self.image.get_rect()
+        # 火を投下するemyから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
+        self.rect.centerx = emy.rect.centerx
+        self.rect.centery = emy.rect.centery+emy.rect.height/2
+        self.speed = 10
+
+    def update(self):
+        """
+        火を速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
 
 class Beam(pg.sprite.Sprite):
     """
@@ -298,6 +326,7 @@ def main():
     
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
+    fires = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
@@ -333,6 +362,8 @@ def main():
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
+            if tmr%200 == 0:  # 200フレームに1回，火を出現させる
+                    fires.add(Fire(emy, bird))
 
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
@@ -343,6 +374,9 @@ def main():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
+        for fire in pg.sprite.groupcollide(fires, beams, True, True).keys():
+            exps.add(Explosion(fire, 50))  # 火エフェクト
+            score.value += 100  # 100点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):
             if bird.state == "hyper":
@@ -350,6 +384,17 @@ def main():
                 score.value += 1
             else:
                 bird.change_img(8, screen) # こうかとん悲しみエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
+            
+        for fire in pg.sprite.spritecollide(bird, fires, True):
+            if bird.state == "hyper":
+                exps.add(Explosion(fire,50))
+                score.value += 1
+            else:
+                bird.change_img(10, screen) # 七面鳥エフェクト
                 score.update(screen)
                 pg.display.update()
                 time.sleep(2)
@@ -362,6 +407,8 @@ def main():
         emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
+        fires.update()
+        fires.draw(screen)
         exps.update()
         exps.draw(screen)
         score.update(screen)
