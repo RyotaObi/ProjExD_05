@@ -291,11 +291,13 @@ class Score:
 
 class Life:
     """
-    ライフの表示をするクラス
+    ライフの表示とゲームオーバー画面を表示するクラス
+    初期のライフ数: 3
     """
-    #imgs = [pg.image.load(f"{MAIN_DIR}/fig/heart.png") for i in range(1, 4)]
     def __init__(self):
-        
+        """"
+        初期ライフ数を画面に表示
+        """
         self.font = pg.font.Font(None, 60)
         self.color = (255, 0, 0)
         self.life = 3
@@ -304,22 +306,18 @@ class Life:
         self.rect.center = 1500, HEIGHT-50
 
     def update(self, screen: pg.Surface):
+        """"
+        爆弾と衝突した際にライフを減らして更新する
+        引数 screen:画面Surface
+        """
         self.image = self.font.render(f"Life: {self.life}", 0, self.color)
         screen.blit(self.image, self.rect)
 
     def gameover(self, screen: pg.Surface):
-        #screen =  pg.display.set_mode((WIDTH, HEIGHT))
         screen.fill((0, 0, 0))
         self.font = pg.font.Font(None, 100)
         self.text = self.font.render("GameOver", True, (255, 255, 255))
         screen.blit(self.text, (650, HEIGHT/2))
-        
-
-""""
-class Gameover():
-    def __init__(self, screen):
-        self.screen =screen
-"""
         
 
 
@@ -389,9 +387,6 @@ def main():
             else:
                 life.life -= 1  # こうかとんと爆弾が衝突したら、ライフを1つ減らす
                 if life.life == 0:  # もし、ライフが0になったら
-                    #bird.change_img(8, screen) # こうかとん悲しみエフェクト
-                    #life.update(screen)
-                    #score.update(screen)
                     life.gameover(screen)
                     pg.display.update()
                     time.sleep(2)
