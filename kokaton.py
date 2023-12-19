@@ -280,7 +280,7 @@ class Score:
     def __init__(self):
         self.font = pg.font.Font(None, 50)
         self.color = (0, 0, 255)
-        self.value = 0
+        self.value = 500
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         self.rect = self.image.get_rect()
         self.rect.center = 100, HEIGHT-50
@@ -289,12 +289,46 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Life:
+    """
+    ライフの表示をするクラス
+    """
+    #imgs = [pg.image.load(f"{MAIN_DIR}/fig/heart.png") for i in range(1, 4)]
+    def __init__(self):
+        
+        self.font = pg.font.Font(None, 60)
+        self.color = (255, 0, 0)
+        self.life = 3
+        self.image = self.font.render(f"Life: {self.life}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 1500, HEIGHT-50
+
+    def update(self, screen: pg.Surface):
+        self.image = self.font.render(f"Life: {self.life}", 0, self.color)
+        screen.blit(self.image, self.rect)
+
+    def gameover(self, screen: pg.Surface):
+        #screen =  pg.display.set_mode((WIDTH, HEIGHT))
+        screen.fill((0, 0, 0))
+        self.font = pg.font.Font(None, 100)
+        self.text = self.font.render("GameOver", True, (255, 255, 255))
+        screen.blit(self.text, (650, HEIGHT/2))
+        
+
+""""
+class Gameover():
+    def __init__(self, screen):
+        self.screen =screen
+"""
+        
+
 
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
     score = Score()
+    life = Life()
     
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
@@ -323,6 +357,10 @@ def main():
                 bird.speed = 20
             if event.type == pg.KEYDOWN and event.key != pg.K_LSHIFT:
                 bird.speed = 10
+            if event.type == pg.KEYDOWN and event.key == pg.K_l:
+                if score.value >= 500:  # スコアが500以上ならば
+                    life.life += 1  # ライフを1つ追加する
+                    score.value -= 500
 
         screen.blit(bg_img, [0, 0])
 
@@ -349,11 +387,15 @@ def main():
                 exps.add(Explosion(bomb,50))
                 score.value += 1
             else:
-                bird.change_img(8, screen) # こうかとん悲しみエフェクト
-                score.update(screen)
-                pg.display.update()
-                time.sleep(2)
-                return
+                life.life -= 1  # こうかとんと爆弾が衝突したら、ライフを1つ減らす
+                if life.life == 0:  # もし、ライフが0になったら
+                    #bird.change_img(8, screen) # こうかとん悲しみエフェクト
+                    #life.update(screen)
+                    #score.update(screen)
+                    life.gameover(screen)
+                    pg.display.update()
+                    time.sleep(2)
+                    return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -365,6 +407,7 @@ def main():
         exps.update()
         exps.draw(screen)
         score.update(screen)
+        life.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
