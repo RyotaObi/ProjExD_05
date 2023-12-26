@@ -54,9 +54,6 @@ def boss_sound():
     pg.mixer.music.play(-1)#無限再生
 
 
-
-
-
 class Bird(pg.sprite.Sprite):
     """
     ゲームキャラクター（こうかとん）に関するクラス
@@ -142,7 +139,7 @@ class Bird(pg.sprite.Sprite):
 
 class Bird2(pg.sprite.Sprite):
     """
-    もう一体のこうかとんに関するクラス
+    アシストのこうかとんに関するクラス
     """
     delta = {   # wasdの辞書
         pg.K_w: (0, -1),
@@ -153,7 +150,7 @@ class Bird2(pg.sprite.Sprite):
 
     def __init__(self, num: int, xy: tuple[int, int]):
         """
-        もう一体のこうかとん画像Surfaceを生成する
+        アシストのこうかとん画像Surfaceを生成する
         引数1 num：こうかとん画像ファイル名の番号
         引数2 xy：こうかとん画像の位置座標タプル
         """
@@ -220,7 +217,6 @@ class Bird2(pg.sprite.Sprite):
         if self.hyper_life < 0:
             self.change_state("nomal", -1)
         screen.blit(self.image, self.rect)
-
 
 
 class Bomb(pg.sprite.Sprite):
@@ -474,7 +470,6 @@ class Life:
         screen.blit(self.text, (650, HEIGHT/2))
         
 
-
 class Boss(pg.sprite.Sprite):
     """
     ボスに関するクラス
@@ -571,10 +566,6 @@ class Clear(pg.sprite.Sprite):
         screen.blit(self.clear_text, (WIDTH/2-self.size, HEIGHT/2))
 
 
-
-
-
-
 def main():
     
     pg.display.set_caption("真！こうかとん無双")
@@ -611,13 +602,6 @@ def main():
                 else:
                     beams.add(Beam(bird))
                 beams2.add(Beam2(bird2))
-                    
-
-        # for event in pg.event.get():
-        #     if event.type == pg.QUIT:
-        #         return 0
-        #     if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-        #         beams2.add(Beam2(bird2))
 
             if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
                 if score.value >= 100 and boss_spawned == False: #bossが出現しているときはnomal状態
@@ -632,8 +616,6 @@ def main():
                     life.life += 1  # ライフを1つ追加する
                     score.value -= 500
 
-            
-        
         screen.blit(bg_img, [0, 0])
         
 
@@ -665,7 +647,6 @@ def main():
             if tmr%200 == 0:  # 200フレームに1回，火を出現させる
                     fires.add(Fire(emy, bird))
 
-    
 
         for boss in bosss: 
             if boss.state == "stop" and tmr%30 == 0:
@@ -700,7 +681,6 @@ def main():
             score.value += 1  # 1点アップ
             
            
-
         for fire in pg.sprite.groupcollide(fires, beams, True, True).keys():
             exps.add(Explosion(fire, 50))  # 火エフェクト
             score.value += 100  # 100点アップ
