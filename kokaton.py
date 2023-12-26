@@ -291,6 +291,37 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+class Life:
+    """
+    ライフの表示とゲームオーバー画面を表示するクラス
+    初期のライフ数: 3
+    """
+    def __init__(self):
+        """"
+        初期ライフ数を画面に表示
+        """
+        self.font = pg.font.Font(None, 60)
+        self.color = (255, 0, 0)
+        self.life = 3
+        self.image = self.font.render(f"Life: {self.life}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 1500, HEIGHT-50
+
+    def update(self, screen: pg.Surface):
+        """"
+        爆弾と衝突した際にライフを減らして更新する
+        引数 screen:画面Surface
+        """
+        self.image = self.font.render(f"Life: {self.life}", 0, self.color)
+        screen.blit(self.image, self.rect)
+
+    def gameover(self, screen: pg.Surface):
+        screen.fill((0, 0, 0))
+        self.font = pg.font.Font(None, 100)
+        self.text = self.font.render("GameOver", True, (255, 255, 255))
+        screen.blit(self.text, (650, HEIGHT/2))
+        
+
 
 class Boss(pg.sprite.Sprite):
     """
@@ -399,6 +430,7 @@ def main():
     score = Score()
     boss_font = BossFont()
     clear = Clear()
+    life = Life()
     
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
@@ -430,6 +462,10 @@ def main():
                 bird.speed = 20
             if event.type == pg.KEYDOWN and event.key != pg.K_LSHIFT:
                 bird.speed = 10
+            if event.type == pg.KEYDOWN and event.key == pg.K_l:
+                if score.value >= 500:  # スコアが500以上ならば
+                    life.life += 1  # ライフを1つ追加する
+                    score.value -= 500
 
             
 
@@ -492,12 +528,12 @@ def main():
                 exps.add(Explosion(bomb,50))
                 score.value += 1
             else:
-                bird.change_img(8, screen) # こうかとん悲しみエフェクト
-                score.update(screen)
-                pg.display.update()
-                time.sleep(2)
-                return
-            
+                life.life -= 1  # こうかとんと爆弾が衝突したら、ライフを1つ減らす
+                if life.life == 0:  # もし、ライフが0になったら
+                    life.gameover(screen)
+                    pg.display.update()
+                    time.sleep(2)
+                    return
 
         bird.update(key_lst, screen)
         beams.update()
@@ -512,6 +548,7 @@ def main():
         bosss.draw(screen)
         score.update(screen)
         boss_font.update(screen)
+        life.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
