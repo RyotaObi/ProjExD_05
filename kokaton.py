@@ -12,7 +12,6 @@ WIDTH = 1600  # ゲームウィンドウの幅
 HEIGHT = 900  # ゲームウィンドウの高さ
 MAIN_DIR = os.path.split(os.path.abspath(__file__))[0]
 
-
 def check_bound(obj: pg.Rect) -> tuple[bool, bool]:
 
     """
@@ -38,6 +37,24 @@ def calc_orientation(org: pg.Rect, dst: pg.Rect) -> tuple[float, float]:
     x_diff, y_diff = dst.centerx-org.centerx, dst.centery-org.centery
     norm = math.sqrt(x_diff**2+y_diff**2)
     return x_diff/norm, y_diff/norm
+def sound():
+        pg.mixer.init()    # 初期設定
+         
+        pg.mixer.music.load("ex05/encount.mp3")     # 音楽ファイルの読み込み
+        
+        pg.mixer.music.play(-1)#無限再生
+         
+        #time.sleep(100)
+        #pg.mixer.music.stop()               # 再生の終了
+def boss_sound():
+    pg.mixer.init()    # 初期設定
+         
+    pg.mixer.music.load("ex05/boudou.mp3")     # 音楽ファイルの読み込み
+        
+    pg.mixer.music.play(-1)#無限再生
+
+
+
 
 
 class Bird(pg.sprite.Sprite):
@@ -157,7 +174,7 @@ class Bomb(pg.sprite.Sprite):
         self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
-
+            
 
 class Fire(pg.sprite.Sprite):
     """
@@ -302,7 +319,6 @@ class Enemy(pg.sprite.Sprite):
             self.vy = 0
             self.state = "stop"
         self.rect.centery += self.vy
-
 
 class Score:
     """
@@ -455,6 +471,7 @@ class Clear(pg.sprite.Sprite):
 
 
 def main():
+    
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
@@ -462,7 +479,7 @@ def main():
     boss_font = BossFont()
     clear = Clear()
     life = Life()
-    
+    sound()
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     fires = pg.sprite.Group()
@@ -470,6 +487,7 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     bosss = pg.sprite.Group()
+    
 
     tmr = 0
     clock = pg.time.Clock()
@@ -500,8 +518,9 @@ def main():
                     score.value -= 500
 
             
-
+        
         screen.blit(bg_img, [0, 0])
+        
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
@@ -510,7 +529,9 @@ def main():
             time.sleep(1) #ボスが出現で1秒間止まる
             bosss.add(Boss()) #ボス出現
             boss_spawned = True #ボスを出現したにする
-            boss_font_spawned = True 
+            boss_font_spawned = True
+            boss_sound() 
+            
 
         if boss_spawned == True: #Bossが出現したらnomal状態に戻る
             bird.hyper_life = -1 #ボス出現中はhyper状態禁止(nomal状態)
@@ -529,10 +550,7 @@ def main():
             if tmr%200 == 0:  # 200フレームに1回，火を出現させる
                     fires.add(Fire(emy, bird))
 
-        for boss in bosss: 
-            if boss.state == "stop" and tmr%30 == 0:
-                # Bossが停止状態に入ったら，intervalに応じて爆弾投下
-                bombs.add(BossBomb(boss, bird))
+    
 
         for boss in bosss: 
             if boss.state == "stop" and tmr%30 == 0:
@@ -540,6 +558,7 @@ def main():
                 bombs.add(BossBomb(boss, bird))
 
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
+            # pg.mixer.music.stop()
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 100  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
@@ -560,6 +579,8 @@ def main():
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
+            
+           
 
         for fire in pg.sprite.groupcollide(fires, beams, True, True).keys():
             exps.add(Explosion(fire, 50))  # 火エフェクト
@@ -617,3 +638,4 @@ if __name__ == "__main__":
     main()
     pg.quit()
     sys.exit()
+   
