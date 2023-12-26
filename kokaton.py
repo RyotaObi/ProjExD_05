@@ -3,7 +3,9 @@ import os
 import random
 import sys
 import time
+from typing import Any
 import pygame as pg
+from pygame.sprite import AbstractGroup
 
 
 WIDTH = 1600  # ゲームウィンドウの幅
@@ -280,7 +282,7 @@ class Score:
     def __init__(self):
         self.font = pg.font.Font(None, 50)
         self.color = (0, 0, 255)
-        self.value = 500
+        self.value = 400
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         self.rect = self.image.get_rect()
         self.rect.center = 100, HEIGHT-50
@@ -321,21 +323,126 @@ class Life:
         
 
 
+class Boss(pg.sprite.Sprite):
+    """
+    ボスに関するクラス
+    """
+
+    def __init__(self):
+        super().__init__()
+        """
+        ボスについて
+        """
+        self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/Boss.png"), 0, 0.4)
+        self.rect = self.image.get_rect()
+        self.rect.center = 100,random.randint(100, 200)
+        self.vy = +6
+        self.bound = random.randint(230, HEIGHT/2)
+        self.state = "move" # 降下状態or停止状態
+    
+    def update(self):
+        """
+        Bossを速度ベクトルself.vyに基づき移動させる
+        """
+        if self.rect.centery > self.bound:
+            self.vy = 0
+            self.state = "stop"
+        self.rect.centery += self.vy
+
+
+class BossFont(pg.sprite.Sprite):
+     def __init__(self):
+        """
+        Boss出現フォントに関するクラス
+        """
+        super().__init__()
+        self.font = pg.font.Font(None, 100)
+        self.color = (255, 0, 0)
+        self.image = self.font.render("=BOSS=", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = WIDTH/2, HEIGHT/2
+
+
+class BossBomb(pg.sprite.Sprite):
+    """
+    Bossの爆弾に関するクラス
+    """
+    def __init__(self, boss: "Boss", bird: Bird):
+        """
+        爆弾円Surfaceを生成する
+        引数1 boss：爆弾を飛ばすBoss
+        引数2 bird：攻撃対象のこうかとん
+        """
+        super().__init__()
+        rad = 15 #半径
+        self.image = pg.Surface((2*rad, 2*rad))
+        pg.draw.circle(self.image, (0, 255, 255), (rad, rad), rad)
+        self.image.set_colorkey((0, 0, 0))
+        self.rect = self.image.get_rect()
+        # 爆弾を投下するBossから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = calc_orientation(boss.rect, bird.rect)  
+        self.rect.centerx = boss.rect.centerx
+        self.rect.centery = boss.rect.centery
+        self.speed = 10 #爆弾速度設定
+
+    def update(self):
+        """
+        爆弾を速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
+class Clear(pg.sprite.Sprite):
+    """
+    クリア画面
+    """
+    def __init__(self):
+        self.life = 1
+        self.font = pg.font.Font(None, 60)
+        self.color = (255, 0, 0)
+        self.image = self.font.render(f"Life: {self.life}", 0, self.color)
+        self.rect = self.image.get_rect()
+        self.rect.center = 1500, HEIGHT-50
+
+    def update(self, screen: pg.surface):
+        self.image = self.font.render(f"Life: {self.life}", 0, self.color)
+        screen.blit(self.image, self.rect)
+
+    def last(self, screen: pg.Surface):
+        self.size = 200
+        screen.fill((255, 255, 255))
+        self.font = pg.font.Font(None, self.size)
+        self.clear_text = self.font.render("CLEAR!", True, (255, 0, 0))
+        screen.blit(self.clear_text, (WIDTH/2-self.size, HEIGHT/2))
+
+
+
+
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
     score = Score()
     life = Life()
+    boss_font = BossFont()
+    clear = Clear()
     
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    bosss = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
+    boss_font_spawned = False #Boss出現文字列を表示したか
+    boss_spawned = False #Bossが出現したか
     while True:
         key_lst = pg.key.get_pressed()
         for event in pg.event.get():
@@ -348,7 +455,7 @@ def main():
                     beams.add(Beam(bird))
 
             if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
-                if score.value >= 100:
+                if score.value >= 100 and boss_spawned == False: #bossが出現しているときはnomal状態
                     bird.change_state("hyper", 500)
                     score.value -= 100
             if event.type == pg.KEYDOWN and event.key == pg.K_LSHIFT:
@@ -360,20 +467,56 @@ def main():
                     life.life += 1  # ライフを1つ追加する
                     score.value -= 500
 
+            
+
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
+            
+        if score.value >= 500 and not boss_spawned: #スコアが500以上かつBossがまだ出現していなければ
+            time.sleep(1) #ボスが出現で1秒間止まる
+            bosss.add(Boss()) #ボス出現
+            boss_spawned = True #ボスを出現したにする
+            boss_font_spawned = True 
+
+        if boss_spawned == True: #Bossが出現したらnomal状態に戻る
+            bird.hyper_life = -1 #ボス出現中はhyper状態禁止(nomal状態)
+            bird.state == "nomal"
+
+        if boss_font_spawned == True: #ボス出現時文字列が表示されたら
+            span = tmr%50
+            if 0 <= span < 25: #文字列点滅
+                boss_font_instance = BossFont()
+                screen.blit(boss_font_instance.image, boss_font_instance.rect) #文字列生成
 
         for emy in emys:
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
 
+        for boss in bosss: 
+            if boss.state == "stop" and tmr%30 == 0:
+                # Bossが停止状態に入ったら，intervalに応じて爆弾投下
+                bombs.add(BossBomb(boss, bird))
+
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 100  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
+
+        for boss in pg.sprite.groupcollide(bosss, beams, True, True).keys(): #ボスが倒されたら
+            exps.add(Explosion(boss, 100)) # 爆発エフェクト
+            score.value += 500 # 500点アップ
+            bird.change_img(6, screen) # こうかとん喜びエフェクト
+            boss_font_spawned = False #文字列を消す
+            clear.life -= 1
+            if clear.life == 0:
+                clear.last(screen)
+                pg.display.update()
+                time.sleep(4)
+                return
+            
 
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
@@ -391,6 +534,7 @@ def main():
                     pg.display.update()
                     time.sleep(2)
                     return
+            
 
         bird.update(key_lst, screen)
         beams.update()
@@ -401,8 +545,11 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        bosss.update()
+        bosss.draw(screen)
         score.update(screen)
         life.update(screen)
+        boss_font.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
