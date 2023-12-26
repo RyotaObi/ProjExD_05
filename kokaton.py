@@ -12,7 +12,6 @@ WIDTH = 1600  # ゲームウィンドウの幅
 HEIGHT = 900  # ゲームウィンドウの高さ
 MAIN_DIR = os.path.split(os.path.abspath(__file__))[0]
 
-
 def check_bound(obj: pg.Rect) -> tuple[bool, bool]:
 
     """
@@ -38,6 +37,24 @@ def calc_orientation(org: pg.Rect, dst: pg.Rect) -> tuple[float, float]:
     x_diff, y_diff = dst.centerx-org.centerx, dst.centery-org.centery
     norm = math.sqrt(x_diff**2+y_diff**2)
     return x_diff/norm, y_diff/norm
+def sound():
+        pg.mixer.init()    # 初期設定
+         
+        pg.mixer.music.load("ex05/encount.mp3")     # 音楽ファイルの読み込み
+        
+        pg.mixer.music.play(-1)#無限再生
+         
+        #time.sleep(100)
+        #pg.mixer.music.stop()               # 再生の終了
+def boss_sound():
+    pg.mixer.init()    # 初期設定
+         
+    pg.mixer.music.load("ex05/boudou.mp3")     # 音楽ファイルの読み込み
+        
+    pg.mixer.music.play(-1)#無限再生
+
+
+
 
 
 class Bird(pg.sprite.Sprite):
@@ -85,6 +102,8 @@ class Bird(pg.sprite.Sprite):
         引数2 screen：画面Surface
         """
         self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/{num}.png"), 0, 2.0)
+        if num == 10:  #numが10番の画像(七面鳥の画像)の時
+            self.image = pg.transform.scale(self.image, (200, 115))  #サイズ変更
         screen.blit(self.image, self.rect)
 
     def change_state(self, state: str, hyper_life: int):
@@ -121,6 +140,88 @@ class Bird(pg.sprite.Sprite):
             self.change_state("nomal", -1)
         screen.blit(self.image, self.rect)
 
+class Bird2(pg.sprite.Sprite):
+    """
+    もう一体のこうかとんに関するクラス
+    """
+    delta = {   # wasdの辞書
+        pg.K_w: (0, -1),
+        pg.K_s: (0, +1),
+        pg.K_a: (-1, 0),
+        pg.K_d: (+1, 0),
+    }
+
+    def __init__(self, num: int, xy: tuple[int, int]):
+        """
+        もう一体のこうかとん画像Surfaceを生成する
+        引数1 num：こうかとん画像ファイル名の番号
+        引数2 xy：こうかとん画像の位置座標タプル
+        """
+        super().__init__()
+        img0 = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/{num}.png"), 0, 2.0)
+        img = pg.transform.flip(img0, True, False)
+        self.imgs = {
+            (+1, 0): img,
+            (+1, -1): pg.transform.rotozoom(img, 45, 1.0),
+            (0, -1): pg.transform.rotozoom(img, 90, 1.0),
+            (-1, -1): pg.transform.rotozoom(img0, -45, 1.0),
+            (-1, 0): img0,
+            (-1, +1): pg.transform.rotozoom(img0, 45, 1.0),
+            (0, +1): pg.transform.rotozoom(img, -90, 1.0),
+            (+1, +1): pg.transform.rotozoom(img, -45, 1.0),
+        }
+        self.dire = (+1, 0)
+        self.image = self.imgs[self.dire]
+        self.rect = self.image.get_rect()
+        self.rect.center = xy
+        self.speed = 10
+        self.state = "nomal"
+        self.hyper_life = -1
+
+    def change_img(self, num: int, screen: pg.Surface):
+        """
+        もう一体のこうかとん画像を切り替え，画面に転送する
+        引数1 num：こうかとん画像ファイル名の番号
+        引数2 screen：画面Surface
+        """
+        self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/{num}.png"), 0, 2.0)
+        screen.blit(self.image, self.rect)
+
+    def change_state(self, state: str, hyper_life: int):
+        """
+        引数1 state:こうかとんの状態
+        引数2 hyper_life:こうかとんのハイパー状態
+        """
+        self.state = state
+        self.hyper_life = hyper_life
+
+    def update(self, key_lst: list[bool], screen: pg.Surface):
+        """
+        押下キーに応じてもう一体のこうかとんを移動させる
+        引数1 key_lst：押下キーの真理値リスト
+        引数2 screen：画面Surface
+        """
+        sum_mv = [0, 0]
+        for k, mv in __class__.delta.items():
+            if key_lst[k]:
+                self.rect.move_ip(+self.speed*mv[0], +self.speed*mv[1])
+                sum_mv[0] += mv[0]
+                sum_mv[1] += mv[1]
+        if check_bound(self.rect) != (True, True):
+            for k, mv in __class__.delta.items():
+                if key_lst[k]:
+                    self.rect.move_ip(-self.speed*mv[0], -self.speed*mv[1])
+        if not (sum_mv[0] == 0 and sum_mv[1] == 0):
+            self.dire = tuple(sum_mv)
+            self.image = self.imgs[self.dire]
+        if self.state == "hyper":
+            self.image = pg.transform.laplacian(self.image)
+            self.hyper_life -= 1
+        if self.hyper_life < 0:
+            self.change_state("nomal", -1)
+        screen.blit(self.image, self.rect)
+
+
 
 class Bomb(pg.sprite.Sprite):
     """
@@ -142,7 +243,7 @@ class Bomb(pg.sprite.Sprite):
         self.image.set_colorkey((0, 0, 0))
         self.rect = self.image.get_rect()
         # 爆弾を投下するemyから見た攻撃対象のbirdの方向を計算
-        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)  
+        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height/2
         self.speed = 6
@@ -157,11 +258,40 @@ class Bomb(pg.sprite.Sprite):
             self.kill()
             
 
+class Fire(pg.sprite.Sprite):
+    """
+    火に関するクラス
+    """
+
+    def __init__(self, emy: "Enemy", bird: Bird):
+        """
+        火画像Surfaceを生成する
+        """
+        super().__init__()
+        self.image = pg.image.load(f"{MAIN_DIR}/fig/fire.png")
+        self.image = pg.transform.scale(self.image, (200, 200))
+        self.rect = self.image.get_rect()
+        # 火を投下するemyから見た攻撃対象のbirdの方向を計算
+        self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
+        self.rect.centerx = emy.rect.centerx
+        self.rect.centery = emy.rect.centery+emy.rect.height/2
+        self.speed = 10
+
+    def update(self):
+        """
+        火を速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
+
+
 class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird, angle: int = 0):
+    def __init__(self, bird: Bird,angle: int = 0):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
@@ -208,14 +338,37 @@ class NeoBeam():
         for angle in angles:
             beams.append(Beam(self.bird, angle))
         return beams
+    
+class Beam2(pg.sprite.Sprite):
+    """
+    ビームに関するクラス
+    """
+    def __init__(self, bird2: Bird2, angle: int = 0):
+        """
+        ビーム画像Surfaceを生成する
+        引数 bird：ビームを放つこうかとん2
+        """
+        super().__init__()
+        self.vx, self.vy = bird2.dire
+        rotated_image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/beam.png"), angle, 2.0)
+        self.image = pg.transform.flip(rotated_image, False, True)
+        angle = math.degrees(math.atan2(-self.vy, self.vx)) + angle
+        self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/beam.png"), angle, 2.0)
+        self.vx = math.cos(math.radians(angle))
+        self.vy = -math.sin(math.radians(angle))
+        self.rect = self.image.get_rect()
+        self.rect.centery = bird2.rect.centery+bird2.rect.height*self.vy
+        self.rect.centerx = bird2.rect.centerx+bird2.rect.width*self.vx
+        self.speed = 10
 
-    # def update(self):
-    #     """
-    #     ビームを速度ベクトルself.vx, self.vyに基づき移動させる
-    #     引数 screen：画面Surface
-    #     """
-    #     for beam in self.beams:
-    #         beam.update()
+    def update(self):
+        """
+        ビームを速度ベクトルself.vx, self.vyに基づき移動させる
+        引数 screen：画面Surface
+        """
+        self.rect.move_ip(+self.speed*self.vx, +self.speed*self.vy)
+        if check_bound(self.rect) != (True, True):
+            self.kill()
 
 class Explosion(pg.sprite.Sprite):
     """
@@ -271,7 +424,6 @@ class Enemy(pg.sprite.Sprite):
             self.vy = 0
             self.state = "stop"
         self.rect.centery += self.vy
-
 
 class Score:
     """
@@ -424,20 +576,25 @@ class Clear(pg.sprite.Sprite):
 
 
 def main():
+    
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"{MAIN_DIR}/fig/pg_bg.jpg")
     score = Score()
-    life = Life()
     boss_font = BossFont()
     clear = Clear()
-    
+    life = Life()
+    sound()
     bird = Bird(3, (900, 400))
+    bird2 = Bird2(3, (700, 400))  # もう一体のこうかとんを生成
     bombs = pg.sprite.Group()
+    fires = pg.sprite.Group()
     beams = pg.sprite.Group()
+    beams2 = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     bosss = pg.sprite.Group()
+    
 
     tmr = 0
     clock = pg.time.Clock()
@@ -453,6 +610,14 @@ def main():
                     beams.add(NeoBeam(bird, num=5).gen_beams())   # 5本のビームを生成
                 else:
                     beams.add(Beam(bird))
+                beams2.add(Beam2(bird2))
+                    
+
+        # for event in pg.event.get():
+        #     if event.type == pg.QUIT:
+        #         return 0
+        #     if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+        #         beams2.add(Beam2(bird2))
 
             if event.type == pg.KEYDOWN and event.key == pg.K_RSHIFT:
                 if score.value >= 100 and boss_spawned == False: #bossが出現しているときはnomal状態
@@ -468,8 +633,9 @@ def main():
                     score.value -= 500
 
             
-
+        
         screen.blit(bg_img, [0, 0])
+        
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
             emys.add(Enemy())
@@ -478,7 +644,9 @@ def main():
             time.sleep(1) #ボスが出現で1秒間止まる
             bosss.add(Boss()) #ボス出現
             boss_spawned = True #ボスを出現したにする
-            boss_font_spawned = True 
+            boss_font_spawned = True
+            boss_sound() 
+            
 
         if boss_spawned == True: #Bossが出現したらnomal状態に戻る
             bird.hyper_life = -1 #ボス出現中はhyper状態禁止(nomal状態)
@@ -494,6 +662,10 @@ def main():
             if emy.state == "stop" and tmr%emy.interval == 0:
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
+            if tmr%200 == 0:  # 200フレームに1回，火を出現させる
+                    fires.add(Fire(emy, bird))
+
+    
 
         for boss in bosss: 
             if boss.state == "stop" and tmr%30 == 0:
@@ -501,6 +673,7 @@ def main():
                 bombs.add(BossBomb(boss, bird))
 
         for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
+            # pg.mixer.music.stop()
             exps.add(Explosion(emy, 100))  # 爆発エフェクト
             score.value += 100  # 10点アップ
             bird.change_img(6, screen)  # こうかとん喜びエフェクト
@@ -517,8 +690,21 @@ def main():
                 time.sleep(4)
                 return
             
+        for emy in pg.sprite.groupcollide(emys, beams2, True, True).keys():
+            exps.add(Explosion(emy, 100))  # 爆発エフェクト
+            score.value += 100  # 10点アップ
+            bird2.change_img(6, screen)  # こうかとん喜びエフェクト
 
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
+            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+            score.value += 1  # 1点アップ
+            
+           
+
+        for fire in pg.sprite.groupcollide(fires, beams, True, True).keys():
+            exps.add(Explosion(fire, 50))  # 火エフェクト
+            score.value += 100  # 100点アップ
+        for bomb in pg.sprite.groupcollide(bombs, beams2, True, True).keys():
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
 
@@ -535,28 +721,46 @@ def main():
                     time.sleep(2)
                     return
             
+        for fire in pg.sprite.spritecollide(bird, fires, True):
+            if bird.state == "hyper":
+                exps.add(Explosion(fire,50))
+                score.value += 1
+            else:
+                bird.change_img(10, screen) # 七面鳥エフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(1)
+                life.gameover(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
+        bird2.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
+        beams2.update()
+        beams2.draw(screen)
         emys.update()
         emys.draw(screen)
         bombs.update()
         bombs.draw(screen)
+        fires.update()
+        fires.draw(screen)
         exps.update()
         exps.draw(screen)
         bosss.update()
         bosss.draw(screen)
         score.update(screen)
-        life.update(screen)
         boss_font.update(screen)
+        life.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
-
+        
 if __name__ == "__main__":
     pg.init()
     main()
     pg.quit()
     sys.exit()
+   
