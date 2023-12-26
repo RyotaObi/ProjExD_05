@@ -83,6 +83,8 @@ class Bird(pg.sprite.Sprite):
         引数2 screen：画面Surface
         """
         self.image = pg.transform.rotozoom(pg.image.load(f"{MAIN_DIR}/fig/{num}.png"), 0, 2.0)
+        if num == 10:  #numが10番の画像(七面鳥の画像)の時
+            self.image = pg.transform.scale(self.image, (200, 115))  #サイズ変更
         screen.blit(self.image, self.rect)
 
     def change_state(self, state: str, hyper_life: int):
@@ -165,7 +167,8 @@ class Fire(pg.sprite.Sprite):
         火画像Surfaceを生成する
         """
         super().__init__()
-        self.image = pg.image.load(f"{MAIN_DIR}/fig/pngtree-orange-red-flame-flame-clipart-png-image_2388399.jpg")
+        self.image = pg.image.load(f"{MAIN_DIR}/fig/fire.png")
+        self.image = pg.transform.scale(self.image, (200, 200))
         self.rect = self.image.get_rect()
         # 火を投下するemyから見た攻撃対象のbirdの方向を計算
         self.vx, self.vy = calc_orientation(emy.rect, bird.rect)
